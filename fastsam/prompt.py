@@ -8,13 +8,13 @@ from .utils import image_to_np_ndarray
 from PIL import Image
 
 try:
-    import clip  # for linear_assignment
+    import open_clip  # for linear_assignment
 
 except (ImportError, AssertionError, AttributeError):
     from ultralytics.yolo.utils.checks import check_requirements
 
-    check_requirements('git+https://github.com/openai/CLIP.git')  # required before installing lap from source
-    import clip
+    check_requirements('open_clip_torch')  # required before installing lap from source
+    import open_clip
 
 
 class FastSAMPrompt:
@@ -340,7 +340,8 @@ class FastSAMPrompt:
     @torch.no_grad()
     def retrieve(self, model, preprocess, elements, search_text: str, device) -> int:
         preprocessed_images = [preprocess(image).to(device) for image in elements]
-        tokenized_text = clip.tokenize([search_text]).to(device)
+        tokenizer = open_clip.get_tokenizer('ViT-B-32')
+        tokenized_text = tokenizer([search_text]).to(device)
         stacked_images = torch.stack(preprocessed_images)
         image_features = model.encode_image(stacked_images)
         text_features = model.encode_text(tokenized_text)
@@ -441,7 +442,7 @@ class FastSAMPrompt:
             return []
         format_results = self._format_results(self.results[0], 0)
         cropped_boxes, cropped_images, not_crop, filter_id, annotations = self._crop_image(format_results)
-        clip_model, preprocess = clip.load('ViT-B/32', device=self.device)
+        clip_model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k', device=self.device)
         scores = self.retrieve(clip_model, preprocess, cropped_boxes, text, device=self.device)
         max_idx = scores.argsort()
         max_idx = max_idx[-1]
